@@ -25,6 +25,11 @@ import { formatTime } from "../../utils/time";
 import { generateId } from "../../utils/timeline";
 import { useTimelineStore } from "../../stores/timelineStore";
 import { MediaSourceFactory } from "./media-sources";
+import { AudioManager } from "./audio/AudioManager";
+
+// 临时开关：是否使用 AudioManager 管理视频音频
+// 如果遇到问题，可以设置为 false 使用视频原生音频
+const USE_AUDIO_MANAGER_FOR_VIDEO = false;
 
 /**
  * 视频图层接口
@@ -139,6 +144,9 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
     const pipelineRef = useRef<GPURenderPipeline | null>(null);
     const pipeline2DRef = useRef<GPURenderPipeline | null>(null);
     const samplerRef = useRef<GPUSampler | null>(null);
+
+    // 音频管理器引用
+    const audioManagerRef = useRef<AudioManager | null>(null);
 
     // 图层和动画状态
     const layersRef = useRef<VideoLayer[]>([]);
@@ -377,9 +385,18 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
             // 播放结束，暂停
             setIsPlaying(false);
             layersRef.current.forEach((layer) => layer.video.pause());
+            // 暂停音频
+            if (audioManagerRef.current) {
+              audioManagerRef.current.pause();
+            }
           }
 
           setCurrentTime(newTime);
+
+          // 同步音频时间
+          if (audioManagerRef.current) {
+            audioManagerRef.current.syncTime(newTime);
+          }
         }
 
         // 开始渲染
@@ -592,7 +609,7 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
         return new Promise((resolve, reject) => {
           const video = document.createElement("video");
           video.src = videoSrc;
-          video.muted = false;
+          video.muted = USE_AUDIO_MANAGER_FOR_VIDEO; // 如果使用 AudioManager 则静音
           video.playsInline = true;
           video.crossOrigin = "anonymous";
           video.preload = "auto";
@@ -634,6 +651,46 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
             layersRef.current.push(layer);
             setHasLayers(true);
             updateDuration();
+
+            // 将视频音频添加到 AudioManager（如果启用）
+            if (
+              USE_AUDIO_MANAGER_FOR_VIDEO &&
+              audioManagerRef.current &&
+              video.duration > 0
+            ) {
+              try {
+                console.log("🎬 Adding video audio to AudioManager:", layer.id);
+                audioManagerRef.current.addVideoAudio({
+                  id: layer.id,
+                  videoElement: video,
+                  startTime,
+                  duration: video.duration,
+                  volume: 1.0,
+                  muted: false,
+                });
+              } catch (error) {
+                console.error(
+                  "❌ Failed to add video audio to AudioManager:",
+                  error,
+                );
+                // 如果添加失败，恢复视频原生音频
+                video.muted = false;
+                console.warn("⚠️ 降级：使用视频元素原生音频");
+              }
+            } else {
+              // 不使用 AudioManager 或未初始化，使用视频原生音频
+              if (!USE_AUDIO_MANAGER_FOR_VIDEO) {
+                console.log(
+                  "ℹ️ Using native video audio (AudioManager disabled for video)",
+                );
+              } else if (!audioManagerRef.current) {
+                console.warn(
+                  "⚠️ AudioManager not initialized, using native video audio",
+                );
+              }
+              video.muted = false;
+            }
+
             resolve();
           };
 
@@ -824,6 +881,22 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
             })),
         );
 
+        // 收集所有音频 clips
+        const audioClips = newTracks.flatMap((track) =>
+          track.clips
+            .filter((clip) => clip.type === "audio" && clip.resourceSrc)
+            .map((clip) => ({
+              id: clip.id,
+              src: clip.resourceSrc!,
+              startTime: clip.startTime,
+              duration: clip.duration,
+              trimStart: clip.trimStart || 0,
+              trimEnd: clip.trimEnd || clip.duration,
+              volume: clip.volume ?? 1.0,
+              name: clip.name,
+            })),
+        );
+
         // 检查是否需要更新 - 不仅检查 ID，还要检查 startTime 等属性
         const existingIds = new Set(layersRef.current.map((l) => l.id));
         const newIds = new Set(mediaClips.map((c) => c.id));
@@ -863,6 +936,11 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
         });
         layersRef.current = [];
 
+        // 清空音频管理器
+        if (audioManagerRef.current) {
+          audioManagerRef.current.clear();
+        }
+
         // 添加新图层
         for (const clip of mediaClips) {
           try {
@@ -898,6 +976,33 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
           }
         }
 
+        // 加载并添加音频 clips
+        if (audioManagerRef.current) {
+          for (const audioClip of audioClips) {
+            try {
+              const audioUrl = convertFileSrc(audioClip.src);
+              console.log("🎵 添加音频 clip:", audioClip.name);
+
+              // 加载音频缓冲区
+              const bufferId = `audio-${audioClip.id}`;
+              await audioManagerRef.current.loadAudio(bufferId, audioUrl);
+
+              // 创建音频片段
+              audioManagerRef.current.createAudioClip({
+                id: audioClip.id,
+                bufferId: bufferId,
+                startTime: audioClip.startTime,
+                duration: audioClip.duration,
+                trimStart: audioClip.trimStart,
+                trimEnd: audioClip.trimEnd,
+                volume: audioClip.volume,
+              });
+            } catch (error) {
+              console.error(`加载音频失败: ${audioClip.name}`, error);
+            }
+          }
+        }
+
         setHasLayers(mediaClips.length > 0);
 
         // 更新总时长
@@ -907,16 +1012,37 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
     );
 
     /**
+     * 初始化音频管理器
+     */
+    useEffect(() => {
+      console.log("🎵 Initializing AudioManager...");
+      audioManagerRef.current = new AudioManager({ masterVolume: 1.0 });
+      console.log("✅ AudioManager initialized successfully");
+
+      return () => {
+        if (audioManagerRef.current) {
+          console.log("🧹 Disposing AudioManager...");
+          audioManagerRef.current.dispose();
+          audioManagerRef.current = null;
+        }
+      };
+    }, []);
+
+    /**
      * 播放
      */
     const play = useCallback(() => {
-      if (layersRef.current.length === 0) return;
+      if (layersRef.current.length === 0 && !audioManagerRef.current) return;
 
       // 如果播放到结尾，重置到开始
       setCurrentTime((prevTime) => {
         if (prevTime >= duration - 0.001) {
           const newTime = 0;
           syncVideosToTime(newTime);
+          // 重置音频时间
+          if (audioManagerRef.current) {
+            audioManagerRef.current.seekTo(newTime);
+          }
           return newTime;
         }
         return prevTime;
@@ -935,6 +1061,14 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
           layer.video.play().catch(() => {});
         }
       });
+
+      // 播放音频
+      if (audioManagerRef.current) {
+        console.log("🎵 Starting AudioManager from WebGPUPlayer.play()");
+        audioManagerRef.current.play(currentTime);
+      } else {
+        console.warn("⚠️ AudioManager not available in play()");
+      }
     }, [currentTime, duration, syncVideosToTime]);
 
     /**
@@ -943,6 +1077,11 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
     const pause = useCallback(() => {
       setIsPlaying(false);
       layersRef.current.forEach((layer) => layer.video.pause());
+
+      // 暂停音频
+      if (audioManagerRef.current) {
+        audioManagerRef.current.pause();
+      }
     }, []);
 
     /**
@@ -965,6 +1104,11 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
         const clampedTime = Math.max(0, Math.min(time, duration));
         setCurrentTime(clampedTime);
         syncVideosToTime(clampedTime);
+
+        // Seek 音频
+        if (audioManagerRef.current) {
+          audioManagerRef.current.seekTo(clampedTime);
+        }
 
         setTimeout(() => {
           isSeekingRef.current = false;
