@@ -69,7 +69,7 @@ export interface Track {
 export interface TimelineState {
   stage: StageConfig; // 舞台配置
   tracks: Track[];
-  pixelsPerSecond: number; // 缩放级别，每秒对应的像素数
+  pixelsPerSecond: number; // 缩放级别,每秒对应的像素数
   zoomLevel: number; // 缩放倍数
   scrollLeft: number; // 水平滚动位置
   scrollTop: number; // 垂直滚动位置
@@ -88,6 +88,9 @@ export interface TimelineState {
 
   // 帧率设置
   fps: number; // 项目帧率
+
+  // 时间显示格式
+  timeDisplayFormat: "milliseconds" | "frames"; // 时间显示格式
 }
 
 /**
@@ -175,4 +178,33 @@ export interface MediaInfo {
   fps?: number;
   hasAudio: boolean;
   hasVideo: boolean;
+}
+
+/**
+ * 检查Clip类型是否可以添加到指定Track类型
+ * @param clipType - Clip的媒体类型
+ * @param trackType - Track的类型
+ * @returns 是否可以添加
+ */
+export function canClipBeAddedToTrack(
+  clipType: MediaType,
+  trackType: TrackType,
+): boolean {
+  if (trackType === "video") {
+    // Video Track 可以包含 video 和 image
+    return clipType === "video" || clipType === "image";
+  } else if (trackType === "audio") {
+    // Audio Track 只能包含 audio
+    return clipType === "audio";
+  }
+  return false;
+}
+
+/**
+ * 获取媒体类型对应的轨道类型
+ * @param mediaType - 媒体类型
+ * @returns 对应的轨道类型
+ */
+export function getTrackTypeForMediaType(mediaType: MediaType): TrackType {
+  return mediaType === "audio" ? "audio" : "video";
 }

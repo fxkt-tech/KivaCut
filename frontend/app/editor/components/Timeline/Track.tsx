@@ -4,7 +4,11 @@
 
 import React from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { Track, getTrackHeight } from "../../types/timeline";
+import {
+  Track,
+  getTrackHeight,
+  canClipBeAddedToTrack,
+} from "../../types/timeline";
 import { useTimelineStore } from "../../stores/timelineStore";
 import { TimelineClip } from "./Clip";
 import { TrackDropZone } from "./TrackDropZone";
@@ -30,6 +34,11 @@ export const TimelineTrack: React.FC<TimelineTrackProps> = ({
   const isSelected = selectedTrackId === track.id;
   const trackHeight = getTrackHeight(track.type);
 
+  // 检查是否可以接受当前拖拽的资源类型
+  const canAcceptDrag = activeDragResourceType
+    ? canClipBeAddedToTrack(activeDragResourceType, track.type)
+    : true;
+
   // 配置拖拽放置区域
   const { setNodeRef, isOver } = useDroppable({
     id: `track-${track.id}`,
@@ -38,7 +47,7 @@ export const TimelineTrack: React.FC<TimelineTrackProps> = ({
       trackId: track.id,
       trackType: track.type,
     },
-    disabled: track.locked,
+    disabled: track.locked || !canAcceptDrag,
   });
 
   const handleTrackClick = (e: React.MouseEvent) => {
@@ -64,10 +73,10 @@ export const TimelineTrack: React.FC<TimelineTrackProps> = ({
         className={`relative bg-editor-bg-alt border-editor-border ${
           isSelected ? "bg-editor-panel" : "bg-editor-bg"
         } ${track.locked ? "opacity-50 cursor-not-allowed" : ""} ${
-          isOver && !track.locked
+          isOver && !track.locked && canAcceptDrag
             ? "bg-accent-blue/20 ring-2 ring-accent-blue"
             : ""
-        }`}
+        } ${isResourceDragging && !canAcceptDrag ? "opacity-30 cursor-not-allowed" : ""}`}
         style={{
           height: trackHeight,
           minHeight: trackHeight,

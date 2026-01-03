@@ -29,7 +29,11 @@ pub fn create_project(
 
     // Create protocol file following kiva-cut Editor protocol structure
     let protocol_path = base_path.join("protocol.json");
-    let editor = Editor::new();
+    let mut editor = Editor::new();
+
+    // Add default video track to new project
+    editor.add_video_track();
+
     editor
         .save_to_file(protocol_path)
         .map_err(|e| format!("Failed to create protocol: {}", e))?;

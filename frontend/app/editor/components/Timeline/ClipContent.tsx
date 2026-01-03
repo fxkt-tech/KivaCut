@@ -27,6 +27,10 @@ export const ClipContent: React.FC<ClipContentProps> = ({
 }: ClipContentProps) => {
   const pixelsPerSecond = useTimelineStore((state) => state.pixelsPerSecond);
   const tracks = useTimelineStore((state) => state.tracks);
+  const timeDisplayFormat = useTimelineStore(
+    (state) => state.timeDisplayFormat,
+  );
+  const fps = useTimelineStore((state) => state.fps);
 
   // 获取轨道高度
   const track = tracks.find((t) => t.id === clip.trackId);
@@ -56,7 +60,7 @@ export const ClipContent: React.FC<ClipContentProps> = ({
       <div className="px-2 py-1 h-full flex space-x-2 text-white">
         <div className="text-xs font-medium truncate">{clip.name}</div>
         <div className="text-[10px] opacity-75">
-          {formatTime(clip.duration)}
+          {formatTime(clip.duration, timeDisplayFormat, fps)}
         </div>
       </div>
     </div>

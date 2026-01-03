@@ -4,7 +4,11 @@
 
 import React, { useRef, useState, useEffect } from "react";
 import { useTimelineStore } from "@/app/editor/stores/timelineStore";
-import { pixelsToTime, timeToPixels } from "@/app/editor/utils/timeline";
+import {
+  pixelsToTime,
+  timeToPixels,
+  formatTimeByDisplayMode,
+} from "@/app/editor/utils/timeline";
 
 interface PlayheadProps {
   currentTime: number;
@@ -23,6 +27,10 @@ export const Playhead: React.FC<PlayheadProps> = ({
 }) => {
   const pixelsPerSecond = useTimelineStore((state) => state.pixelsPerSecond);
   const scrollLeft = useTimelineStore((state) => state.scrollLeft);
+  const timeDisplayFormat = useTimelineStore(
+    (state) => state.timeDisplayFormat,
+  );
+  const fps = useTimelineStore((state) => state.fps);
 
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<{ x: number; time: number } | null>(null);
@@ -91,14 +99,13 @@ export const Playhead: React.FC<PlayheadProps> = ({
       <div
         className={`absolute top-0 left-1/2 -translate-x-1/2 pointer-events-auto z-20 ${
           isDragging ? "cursor-grabbing" : "cursor-grab"
-        }`}
+        } group`}
         style={{
           width: "16px",
           height: "16px",
           marginTop: "-6px", // 向上偏移，让三角形在标尺区域
         }}
         onMouseDown={handleMouseDown}
-        title={`Current Time: ${currentTime.toFixed(3)}s`}
       >
         {/* 三角形头部 */}
         <div
@@ -109,6 +116,16 @@ export const Playhead: React.FC<PlayheadProps> = ({
             borderTop: "8px solid #000",
           }}
         />
+
+        {/* 时间 Tooltip */}
+        <div
+          className="absolute -top-8 left-1/2 -translate-x-1/2
+                     bg-editor-dark text-text-primary text-xs px-2 py-1 rounded
+                     whitespace-nowrap opacity-0 group-hover:opacity-100
+                     transition-opacity pointer-events-none"
+        >
+          {formatTimeByDisplayMode(currentTime, timeDisplayFormat, fps)}
+        </div>
       </div>
 
       {/* Playhead 垂直线 */}

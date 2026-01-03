@@ -13,6 +13,7 @@ import {
   ZoomOutIcon,
   ZoomInIcon,
   SplitIcon,
+  TimeFormatIcon,
 } from "../../icons";
 
 interface TimelineToolbarProps {
@@ -40,6 +41,12 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
   const selectedClipIds = useTimelineStore((state) => state.selectedClipIds);
   const splitSelectedClips = useTimelineStore(
     (state) => state.splitSelectedClips,
+  );
+  const timeDisplayFormat = useTimelineStore(
+    (state) => state.timeDisplayFormat,
+  );
+  const setTimeDisplayFormat = useTimelineStore(
+    (state) => state.setTimeDisplayFormat,
   );
 
   return (
@@ -94,6 +101,28 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
       </div>
 
       <div className="flex items-center gap-2">
+        {/* 时间格式切换 */}
+        <button
+          onClick={() => {
+            setTimeDisplayFormat(
+              timeDisplayFormat === "frames" ? "milliseconds" : "frames",
+            );
+          }}
+          className="p-1 hover:bg-editor-hover text-text-muted hover:text-(--color-editor-dark) rounded transition-colors flex items-center gap-1"
+          title={
+            timeDisplayFormat === "frames"
+              ? "Display: Frames (HH:MM:SS.FF)"
+              : "Display: Milliseconds (HH:MM:SS.mmm)"
+          }
+        >
+          <TimeFormatIcon className="w-5 h-5" />
+          <span className="text-xs font-mono">
+            {timeDisplayFormat === "frames" ? "FF" : "ms"}
+          </span>
+        </button>
+
+        <div className="w-px h-6 bg-editor-border" />
+
         {/* 吸附开关 */}
         <button
           onClick={toggleSnapping}

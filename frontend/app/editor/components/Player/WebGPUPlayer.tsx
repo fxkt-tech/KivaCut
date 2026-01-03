@@ -21,8 +21,7 @@ import {
 import { Track } from "../../types/timeline";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { SHADER_EXTERNAL, SHADER_2D } from "./shader/unified";
-import { formatTime } from "../../utils/time";
-import { generateId } from "../../utils/timeline";
+import { generateId, formatTimeByDisplayMode } from "../../utils/timeline";
 import { useTimelineStore } from "../../stores/timelineStore";
 import { MediaSourceFactory } from "./media-sources";
 import { AudioManager } from "./audio/AudioManager";
@@ -130,6 +129,11 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
+
+    const timeDisplayFormat = useTimelineStore(
+      (state) => state.timeDisplayFormat,
+    );
+    const storeFps = useTimelineStore((state) => state.fps);
     const [hasLayers, setHasLayers] = useState(false);
     const [isWebGPUReady, setIsWebGPUReady] = useState(false);
 
@@ -1303,6 +1307,8 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
       stepForward();
     };
 
+    const [aspectRatio, setAspectRatio] = useState<string>("原始");
+
     return (
       <main className={"flex-1 flex flex-col relative min-w-0 bg-editor-bg"}>
         {/* 播放器画布 */}
@@ -1314,36 +1320,58 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
         </div>
 
         {/* 播放控制栏 */}
-        <div className="h-8 flex items-center justify-center gap-4 shrink-0 border-t border-editor-border bg-editor-bg">
-          <button
-            onClick={handlePrevious}
-            className="transition-colors text-lg text-text-secondary hover:text-text-fg disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label="上一帧"
-            disabled={!hasLayers}
-          >
-            <PreviousFrameIcon size={20} />
-          </button>
+        <div className="h-8 flex items-center relative shrink-0 border-t border-editor-border bg-editor-bg px-4">
+          {/* 左侧：时间显示 */}
+          <div className="text-xs font-mono text-accent-cyan min-w-fit">
+            {formatTimeByDisplayMode(currentTime, timeDisplayFormat, storeFps)}{" "}
+            / {formatTimeByDisplayMode(duration, timeDisplayFormat, storeFps)}
+          </div>
 
-          <button
-            onClick={handlePlayPause}
-            className="transition-colors text-lg text-text-secondary hover:text-text-fg disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label={isPlaying ? "暂停" : "播放"}
-            disabled={!hasLayers}
-          >
-            {isPlaying ? <PauseIcon size={20} /> : <PlayIcon size={20} />}
-          </button>
+          {/* 中间：播放控制按钮 */}
+          <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-4">
+            <button
+              onClick={handlePrevious}
+              className="transition-colors text-lg text-text-secondary hover:text-text-fg disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="上一帧"
+              disabled={!hasLayers}
+            >
+              <PreviousFrameIcon size={20} />
+            </button>
 
-          <button
-            onClick={handleNext}
-            className="transition-colors text-lg text-text-secondary hover:text-text-fg disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label="下一帧"
-            disabled={!hasLayers}
-          >
-            <NextFrameIcon size={20} />
-          </button>
+            <button
+              onClick={handlePlayPause}
+              className="transition-colors text-lg text-text-secondary hover:text-text-fg disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label={isPlaying ? "暂停" : "播放"}
+              disabled={!hasLayers}
+            >
+              {isPlaying ? <PauseIcon size={20} /> : <PlayIcon size={20} />}
+            </button>
 
-          <div className="text-xs font-mono ml-4 text-accent-cyan">
-            {formatTime(currentTime)} / {formatTime(duration)}
+            <button
+              onClick={handleNext}
+              className="transition-colors text-lg text-text-secondary hover:text-text-fg disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="下一帧"
+              disabled={!hasLayers}
+            >
+              <NextFrameIcon size={20} />
+            </button>
+          </div>
+
+          {/* 右侧：宽高比选择 */}
+          <div className="ml-auto">
+            <select
+              value={aspectRatio}
+              onChange={(e) => setAspectRatio(e.target.value)}
+              disabled={true}
+              className="text-xs px-2 py-1 rounded bg-editor-bg text-text-secondary disabled:opacity-50 disabled:cursor-not-allowed appearance-none"
+            >
+              <option value="原始">原始</option>
+              <option value="16:9">16:9</option>
+              <option value="9:16">9:16</option>
+              <option value="4:3">4:3</option>
+              <option value="3:4">3:4</option>
+              <option value="1:1">1:1</option>
+            </select>
           </div>
         </div>
       </main>

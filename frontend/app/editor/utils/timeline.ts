@@ -39,17 +39,37 @@ export function formatTimeSimple(seconds: number): string {
 }
 
 /**
- * 格式化时间和帧号 MM:SS:FF
+ * 格式化时间和帧号 HH:MM:SS.FF
  * @param seconds 时间（秒）
  * @param fps 帧率
  * @returns 格式化的字符串
  */
 export function formatTimeWithFrames(seconds: number, fps: number): string {
-  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
   const frames = Math.floor((seconds % 1) * fps);
 
-  return `${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}:${frames.toString().padStart(2, "0")}`;
+  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}.${frames.toString().padStart(2, "0")}`;
+}
+
+/**
+ * 根据当前显示格式格式化时间
+ * @param seconds 时间（秒）
+ * @param format 显示格式
+ * @param fps 帧率
+ * @returns 格式化的时间字符串
+ */
+export function formatTimeByDisplayMode(
+  seconds: number,
+  format: "milliseconds" | "frames",
+  fps: number = 30,
+): string {
+  if (format === "frames") {
+    return formatTimeWithFrames(seconds, fps);
+  } else {
+    return formatTime(seconds);
+  }
 }
 
 /**
@@ -153,34 +173,32 @@ export function calculateFrameBasedTimeMarks(
   // 根据缩放级别动态调整间隔（以帧为单位）
   let frameInterval = 1; // 默认每帧一个刻度
   let majorFrameInterval = fps; // 主刻度间隔（默认1秒）
-  let showFrameNumbers = false; // 是否显示帧号
 
   if (pixelsPerFrame < 2) {
     // 非常缩小：每10帧一个刻度，每10秒一个主刻度
     frameInterval = 10;
     majorFrameInterval = fps * 10;
-    showFrameNumbers = false;
   } else if (pixelsPerFrame < 5) {
     // 缩小：每5帧一个刻度，每5秒一个主刻度
     frameInterval = 5;
     majorFrameInterval = fps * 5;
-    showFrameNumbers = false;
   } else if (pixelsPerFrame < 10) {
     // 中等：每帧一个刻度，每秒一个主刻度
     frameInterval = 1;
     majorFrameInterval = fps;
-    showFrameNumbers = false;
   } else if (pixelsPerFrame < 20) {
-    // 放大：每帧一个刻度，每半秒一个主刻度，显示时间
+    // 放大：每帧一个刻度，每秒一个主刻度
     frameInterval = 1;
-    majorFrameInterval = Math.max(1, Math.floor(fps / 2));
-    showFrameNumbers = false;
+    majorFrameInterval = fps;
   } else {
-    // 非常放大：每帧一个刻度，显示帧号
+    // 非常放大：每帧一个刻度，每秒一个主刻度
     frameInterval = 1;
-    majorFrameInterval = Math.max(1, Math.floor(fps / 4)); // 每0.25秒一个主刻度
-    showFrameNumbers = true;
+    majorFrameInterval = fps;
   }
+
+  // 判断是否应该在次刻度显示帧号：主刻度间隔为1秒且空间足够大
+  const showMinorFrameLabels =
+    majorFrameInterval === fps && pixelsPerFrame >= 20;
 
   // 转换为帧数
   const startFrame = Math.floor(startTime * fps);
@@ -195,16 +213,12 @@ export function calculateFrameBasedTimeMarks(
       let label = "";
 
       if (isMajor) {
-        if (showFrameNumbers) {
-          // 显示时间和帧号：MM:SS:FF
-          label = formatTimeWithFrames(time, fps);
-        } else {
-          // 只显示时间：MM:SS
-          label = formatTimeSimple(time);
-        }
-      } else if (showFrameNumbers && pixelsPerFrame >= 30) {
-        // 在非常放大的情况下，次刻度也显示帧号
-        label = formatFrameNumber(time, fps);
+        // 主刻度：始终显示完整时间格式（秒级，不显示帧）
+        label = formatTimeSimple(time); // HH:MM:SS
+      } else if (showMinorFrameLabels) {
+        // 次刻度：仅在主刻度间隔为1秒且空间足够大时显示帧号
+        const frameInSecond = Math.floor((time % 1) * fps);
+        label = `${frameInSecond}F`;
       }
 
       marks.push({

@@ -7,7 +7,8 @@ import { useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { useTauriCommands } from "@/app/hooks/useTauriCommands";
 import { DragData, MediaType } from "../../types/timeline";
-import { DeleteIcon, DragHandleIcon } from "../../icons/UIIcons";
+import { DeleteIcon } from "../../icons/UIIcons";
+import { VideoIcon, AudioIcon, ImageIcon } from "../../icons/MaterialIcons";
 
 interface BackendResource {
   id: string;
@@ -125,6 +126,20 @@ function ResourceItem({
 
   const mediaType = getMediaType(resource.resource_type);
 
+  // 根据媒体类型返回对应的 icon
+  const getDragIcon = () => {
+    switch (mediaType) {
+      case "video":
+        return <VideoIcon size={16} className="text-gray-400" />;
+      case "audio":
+        return <AudioIcon size={16} className="text-gray-400" />;
+      case "image":
+        return <ImageIcon size={16} className="text-gray-400" />;
+      default:
+        return <VideoIcon size={16} className="text-gray-400" />;
+    }
+  };
+
   // 配置拖拽
   const dragData: DragData = {
     resourceId: resource.id,
@@ -155,8 +170,8 @@ function ResourceItem({
       </div>
 
       {/* 拖拽提示图标 */}
-      <div className="absolute top-1 left-0 opacity-50 pointer-events-none">
-        <DragHandleIcon size={16} className="text-gray-400" />
+      <div className="absolute top-1 left-1 opacity-50 pointer-events-none">
+        {getDragIcon()}
       </div>
 
       {/* Delete button - hidden by default, shown on hover */}

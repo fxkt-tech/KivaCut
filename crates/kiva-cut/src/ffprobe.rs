@@ -353,6 +353,21 @@ impl MediaInfo {
 
     /// Check if this is an image file (single frame or image format)
     pub fn is_image(&self) -> bool {
+        // Check if codec name is a known image format
+        if let Some(video_stream) = self.first_video_stream() {
+            if let Some(ref codec_name) = video_stream.codec_name {
+                let image_codecs = [
+                    "png", "jpeg", "jpg", "bmp", "gif", "webp", "tiff", "tif", "svg", "apng",
+                ];
+                if image_codecs
+                    .iter()
+                    .any(|&codec| codec_name.eq_ignore_ascii_case(codec))
+                {
+                    return true;
+                }
+            }
+        }
+
         // Check if format name contains common image formats
         if let Some(ref format) = self.format {
             if let Some(ref format_name) = format.format_name {

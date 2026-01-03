@@ -34,6 +34,7 @@ import {
   getAllClipsFromTracks,
   snapToFrame,
 } from "./utils/timeline";
+import { canClipBeAddedToTrack } from "./types/timeline";
 import { ClipDragPreview } from "./components/Timeline/ClipDragPreview";
 import {
   protocolToTimeline,
@@ -312,7 +313,7 @@ export default function EditorPage() {
         } catch (error) {
           console.error("Failed to auto-save protocol:", error);
         }
-      }, 1000),
+      }, 5000),
     [protocol, tracks, saveProtocol],
   );
 
@@ -584,6 +585,17 @@ export default function EditorPage() {
       const track = tracks.find((t) => t.id === trackId);
 
       if (!track || track.locked) return;
+
+      // 验证Clip类型是否可以添加到该Track
+      if (!canClipBeAddedToTrack(dragData.resourceType, track.type)) {
+        console.warn(
+          `Cannot add ${dragData.resourceType} clip to ${track.type} track`,
+        );
+        setTimeout(() => {
+          isDragEndProcessingRef.current = false;
+        }, 100);
+        return;
+      }
 
       // 计算拖放的时间位置
       const rect = document

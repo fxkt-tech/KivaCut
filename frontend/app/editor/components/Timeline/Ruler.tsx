@@ -25,6 +25,9 @@ export const TimelineRuler: React.FC<TimelineRulerProps> = ({
   const pixelsPerSecond = useTimelineStore((state) => state.pixelsPerSecond);
   const scrollLeft = useTimelineStore((state) => state.scrollLeft);
   const fps = useTimelineStore((state) => state.fps);
+  const timeDisplayFormat = useTimelineStore(
+    (state) => state.timeDisplayFormat,
+  );
 
   // 计算整个时间范围（不考虑滚动，因为外层容器通过 transform 处理滚动）
   const startTime = 0;

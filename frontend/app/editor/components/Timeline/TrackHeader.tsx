@@ -26,6 +26,7 @@ export const TrackHeader: React.FC<TrackHeaderProps> = ({ track }) => {
   const updateTrack = useTimelineStore((state) => state.updateTrack);
   const removeTrack = useTimelineStore((state) => state.removeTrack);
   const selectedTrackId = useTimelineStore((state) => state.selectedTrackId);
+  const tracks = useTimelineStore((state) => state.tracks);
 
   const isSelected = selectedTrackId === track.id;
   const trackHeight = getTrackHeight(track.type);
@@ -45,6 +46,11 @@ export const TrackHeader: React.FC<TrackHeaderProps> = ({ track }) => {
   const handleDelete = () => {
     removeTrack(track.id);
   };
+
+  // 检查是否是唯一的video track
+  const isOnlyVideoTrack =
+    track.type === "video" &&
+    tracks.filter((t) => t.type === "video").length <= 1;
 
   return (
     <div
@@ -119,9 +125,13 @@ export const TrackHeader: React.FC<TrackHeaderProps> = ({ track }) => {
         {/* 删除按钮 */}
         <button
           onClick={handleDelete}
-          className="p-1 rounded hover:bg-accent-red/20 text-text-muted hover:text-accent-red transition-colors"
-          title="Delete track"
-          disabled={track.locked}
+          className="p-1 rounded hover:bg-accent-red/20 text-text-muted hover:text-accent-red transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title={
+            isOnlyVideoTrack
+              ? "Cannot delete the only video track"
+              : "Delete track"
+          }
+          disabled={track.locked || isOnlyVideoTrack}
         >
           <TrashIcon className="w-4 h-4" />
         </button>

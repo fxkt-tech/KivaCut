@@ -5,7 +5,7 @@
 import React from "react";
 import { DragData, Clip, MediaType } from "../../types/timeline";
 import { ClipContent } from "./ClipContent";
-import { AudioTrackIcon, VideoTrackIcon } from "../../icons";
+import { AudioTrackIcon, VideoTrackIcon, ImageTrackIcon } from "../../icons";
 
 interface ClipDragPreviewProps {
   data: DragData | Clip;
@@ -60,15 +60,7 @@ export const ClipDragPreview: React.FC<ClipDragPreviewProps> = ({
       case "audio":
         return <AudioTrackIcon className="w-4 h-4" />;
       case "image":
-        return (
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path
-              fillRule="evenodd"
-              d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-              clipRule="evenodd"
-            />
-          </svg>
-        );
+        return <ImageTrackIcon className="w-4 h-4" />;
       case "text":
         return (
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">

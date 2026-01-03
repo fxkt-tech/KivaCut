@@ -1,7 +1,13 @@
 // Timeline Zustand Store
 
 import { create } from "zustand";
-import { Track, Clip, TimelineState, TIMELINE_CONFIG } from "../types/timeline";
+import {
+  Track,
+  Clip,
+  TimelineState,
+  TIMELINE_CONFIG,
+  canClipBeAddedToTrack,
+} from "../types/timeline";
 import { StageConfig } from "../types/protocol";
 import { generateId, clamp } from "../utils/timeline";
 import { produce } from "immer";
@@ -68,6 +74,9 @@ interface TimelineStore extends TimelineState {
   // 帧率设置
   setFps: (fps: number) => void;
 
+  // 时间显示格式
+  setTimeDisplayFormat: (format: "milliseconds" | "frames") => void;
+
   // 查询方法
   getClipById: (clipId: string) => Clip | undefined;
   getSelectedClip: () => Clip | null;
@@ -113,6 +122,7 @@ const initialState: TimelineState = {
   snappingEnabled: true,
   snapThreshold: TIMELINE_CONFIG.SNAP_THRESHOLD,
   fps: TIMELINE_CONFIG.DEFAULT_FPS,
+  timeDisplayFormat: "frames",
 };
 
 /**
@@ -187,16 +197,30 @@ export const useTimelineStore = create<TimelineStore>()((set, get) => ({
   },
 
   removeTrack: (trackId) => {
-    saveToHistory();
-    set((state) =>
-      produce(state, (draft) => {
+    set((state) => {
+      // 找到要删除的track
+      const trackToDelete = state.tracks.find((track) => track.id === trackId);
+
+      // 如果是video track，检查是否是唯一的video track
+      if (trackToDelete?.type === "video") {
+        const videoTrackCount = state.tracks.filter(
+          (track) => track.type === "video",
+        ).length;
+        if (videoTrackCount <= 1) {
+          // 不允许删除唯一的video track，返回原状态
+          return state;
+        }
+      }
+
+      saveToHistory();
+      return produce(state, (draft) => {
         draft.tracks = draft.tracks.filter((track) => track.id !== trackId);
         // 重新排序
         draft.tracks.forEach((track, index) => {
           track.order = index;
         });
-      }),
-    );
+      });
+    });
   },
 
   updateTrack: (trackId, updates) => {
@@ -242,6 +266,14 @@ export const useTimelineStore = create<TimelineStore>()((set, get) => ({
         const track = draft.tracks.find((t) => t.id === trackId);
         if (!track) return;
 
+        // 验证类型兼容性
+        if (!canClipBeAddedToTrack(clipData.type, track.type)) {
+          console.warn(
+            `Cannot add ${clipData.type} clip to ${track.type} track`,
+          );
+          return;
+        }
+
         const newClip: Clip = {
           ...clipData,
           id: generateId("clip"),
@@ -275,6 +307,24 @@ export const useTimelineStore = create<TimelineStore>()((set, get) => ({
         draft.tracks.forEach((track, index) => {
           track.order = index;
         });
+
+        // 检查是否还有 video track，没有则创建一个
+        const hasVideoTrack = draft.tracks.some(
+          (track) => track.type === "video",
+        );
+        if (!hasVideoTrack) {
+          const newTrack: Track = {
+            id: generateId(),
+            name: `视频轨道 ${draft.tracks.length + 1}`,
+            type: "video",
+            clips: [],
+            visible: true,
+            locked: false,
+            muted: false,
+            order: draft.tracks.length,
+          };
+          draft.tracks.push(newTrack);
+        }
       }),
     );
   },
@@ -349,6 +399,14 @@ export const useTimelineStore = create<TimelineStore>()((set, get) => ({
         // 查找目标轨道
         const targetTrack = draft.tracks.find((t) => t.id === targetTrackId);
         if (!targetTrack) return;
+
+        // 验证类型兼容性
+        if (!canClipBeAddedToTrack(clip.type, targetTrack.type)) {
+          console.warn(
+            `Cannot move ${clip.type} clip to ${targetTrack.type} track`,
+          );
+          return;
+        }
 
         // 从源轨道移除
         sourceTrack.clips = sourceTrack.clips.filter((c) => c.id !== clipId);
@@ -611,6 +669,15 @@ export const useTimelineStore = create<TimelineStore>()((set, get) => ({
     );
   },
 
+  // 时间显示格式设置
+  setTimeDisplayFormat: (format) => {
+    set((state) =>
+      produce(state, (draft) => {
+        draft.timeDisplayFormat = format;
+      }),
+    );
+  },
+
   // 查询方法
   getClipById: (clipId) => {
     const state = get();
@@ -665,6 +732,24 @@ export const useTimelineStore = create<TimelineStore>()((set, get) => ({
         draft.tracks.forEach((track, index) => {
           track.order = index;
         });
+
+        // 检查是否还有 video track，没有则创建一个
+        const hasVideoTrack = draft.tracks.some(
+          (track) => track.type === "video",
+        );
+        if (!hasVideoTrack) {
+          const newTrack: Track = {
+            id: generateId(),
+            name: `视频轨道 ${draft.tracks.length + 1}`,
+            type: "video",
+            clips: [],
+            visible: true,
+            locked: false,
+            muted: false,
+            order: draft.tracks.length,
+          };
+          draft.tracks.push(newTrack);
+        }
       }),
     );
   },

@@ -6,17 +6,29 @@
 /**
  * Format seconds to MM:SS or HH:MM:SS format
  * @param seconds - Time in seconds
+ * @param format - Time display format: "milliseconds" or "frames"
+ * @param fps - Frames per second (default 30, used when format is "frames")
  * @returns Formatted time string
  */
-export function formatTime(seconds: number): string {
+export function formatTime(
+  seconds: number,
+  format: "milliseconds" | "frames" = "milliseconds",
+  fps: number = 30,
+): string {
   if (!isFinite(seconds) || seconds < 0) {
-    return "00:00:00.000";
+    return format === "frames" ? "00:00:00.00" : "00:00:00.000";
   }
 
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
   const milliseconds = Math.floor((seconds % 1) * 1000);
+
+  if (format === "frames") {
+    // Convert remaining milliseconds to frames
+    const frames = Math.floor(((seconds % 1) * 1000 * fps) / 1000);
+    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}.${frames.toString().padStart(2, "0")}`;
+  }
 
   return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}.${milliseconds.toString().padStart(3, "0")}`;
 }
