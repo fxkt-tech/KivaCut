@@ -19,13 +19,10 @@ export function ProjectCard({
   const [isDeleteConfirming, setIsDeleteConfirming] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isProcessingClick, setIsProcessingClick] = useState(false);
+  const [isOpeningFolder, setIsOpeningFolder] = useState(false);
   const { deleteProject, openProjectDir } = useTauriCommands();
 
   const createdDate = new Date(project.create_time).toLocaleString("sv-SE");
-
-  const lastModifiedDate = new Date(project.last_modified).toLocaleString(
-    "sv-SE",
-  );
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -57,10 +54,13 @@ export function ProjectCard({
   const handleOpenFolder = async (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    setIsOpeningFolder(true);
     try {
       await openProjectDir(project.path);
     } catch (error) {
       console.error("Failed to open folder:", error);
+    } finally {
+      setIsOpeningFolder(false);
     }
   };
 
@@ -75,6 +75,7 @@ export function ProjectCard({
       const target = e.target as HTMLElement;
       if (
         target.closest("[data-delete-button]") ||
+        target.closest("[data-open-button]") ||
         target.closest("[data-confirmation-popup]")
       ) {
         return;
@@ -98,10 +99,9 @@ export function ProjectCard({
         setIsDeleteConfirming(false);
       }}
     >
-      <button
+      <div
         onClick={handleCardClick}
-        disabled={isProcessingClick}
-        className="w-full text-left p-4 rounded-lg border transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+        className="w-full text-left p-4 rounded-lg border transition-all cursor-pointer flex flex-col h-full"
         style={{
           background: isSelected
             ? "var(--color-editor-bg-alt)"
@@ -113,8 +113,17 @@ export function ProjectCard({
             ? "0 10px 15px -3px rgba(137, 165, 168, 0.2)"
             : "none",
         }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            if (!isProcessingClick) {
+              handleCardClick(e as any);
+            }
+          }
+        }}
       >
-        <div className="flex items-start justify-between gap-4 mb-3">
+        {/* Header with title and selection check */}
+        <div className="flex items-start justify-between gap-3 mb-2">
           <h3
             className="text-lg font-semibold truncate flex-1"
             style={{ color: "var(--color-text-fg)" }}
@@ -136,77 +145,84 @@ export function ProjectCard({
           )}
         </div>
 
-        <p
-          className="text-xs mb-2 truncate cursor-pointer transition-colors"
-          style={{ color: "var(--color-text-secondary)" }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.color = "var(--color-accent-cyan)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.color = "var(--color-text-secondary)")
-          }
-          onClick={handleOpenFolder}
-          title="打开项目所在位置"
-          data-path-link
-        >
-          {project.path}
-        </p>
+        {/* Created date */}
+        <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+          创建于 {createdDate}
+        </span>
 
-        <div
-          className="flex flex-col gap-1 pt-2 border-t"
-          style={{ borderColor: "var(--color-editor-border)" }}
-        >
-          <span
-            className="text-xs"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            创建: {createdDate}
-          </span>
-          <span
-            className="text-xs"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            更新: {lastModifiedDate}
-          </span>
-        </div>
-      </button>
+        {/* Spacer */}
+        <div className="flex-1" />
+      </div>
 
-      {/* Delete Button - visible on hover */}
+      {/* Action Buttons - visible on hover */}
       {isHovered && (
-        <button
-          onClick={handleDeleteClick}
-          disabled={isDeleting}
-          className="absolute top-2 right-2 p-2 transition-colors disabled:opacity-50"
-          style={{ color: "var(--color-text-secondary)" }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.color = "var(--color-accent-red)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.color = "var(--color-text-secondary)")
-          }
-          title="Delete project"
-          data-delete-button
-        >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        <div className="absolute top-2 right-2 flex items-center gap-1">
+          {/* Open Folder Button */}
+          <button
+            onClick={handleOpenFolder}
+            disabled={isOpeningFolder}
+            className="p-2 transition-colors disabled:opacity-50"
+            style={{ color: "var(--color-text-secondary)" }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.color = "var(--color-accent-cyan)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.color = "var(--color-text-secondary)")
+            }
+            title="打开项目所在位置"
+            data-open-button
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-            />
-          </svg>
-        </button>
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2-3h6a2 2 0 012 2v10a2 2 0 01-2 2H5z"
+              />
+            </svg>
+          </button>
+
+          {/* Delete Button */}
+          <button
+            onClick={handleDeleteClick}
+            disabled={isDeleting}
+            className="p-2 transition-colors disabled:opacity-50"
+            style={{ color: "var(--color-text-secondary)" }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.color = "var(--color-accent-red)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.color = "var(--color-text-secondary)")
+            }
+            title="删除项目"
+            data-delete-button
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
+            </svg>
+          </button>
+        </div>
       )}
 
-      {/* Confirmation Popup - positioned to the left of delete button */}
+      {/* Confirmation Popup */}
       {isDeleteConfirming && (
         <div
-          className="absolute top-0 right-12 z-10 border rounded-lg shadow-xl p-3 w-48 pointer-events-auto"
+          className="absolute top-12 right-2 z-10 border rounded-lg shadow-xl p-3 w-48 pointer-events-auto"
           style={{
             background: "var(--color-editor-panel)",
             borderColor: "var(--color-editor-border)",

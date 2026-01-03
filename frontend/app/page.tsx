@@ -159,7 +159,7 @@ export default function ProjectsPage() {
               }}
               className="w-full font-medium rounded-lg transition-all shadow-md flex items-center justify-center hover:opacity-90 disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              {isNavigating ? "处理中..." : "开始创作"}
+              {isNavigating ? "处理中..." : "创建项目"}
             </button>
           </div>
 
@@ -204,7 +204,7 @@ export default function ProjectsPage() {
                 ></div>
               </div>
             ) : projects.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {projects.map((project) => (
                   <ProjectCard
                     key={project.id}

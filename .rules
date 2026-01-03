@@ -2,3 +2,4 @@
 - 使用Tauri V2实现，目录在frontend\src-tauri
 - 前端页面使用Nextjs16+TailwindCSS v4实现，目录在frontend，使用App Router
 - 不要废话，不要写总结文档
+- 每次处理完之后都要检查一下有没有报错
