@@ -1,6 +1,13 @@
 "use client";
 
-import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import {
+  useMemo,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  Suspense,
+} from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   DndContext,
@@ -43,7 +50,7 @@ import {
 } from "./utils/protocolConverter";
 import { debounce } from "./utils/debounce";
 
-export default function EditorPage() {
+function EditorPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const projectId = searchParams.get("id");
@@ -899,5 +906,19 @@ export default function EditorPage() {
         ) : null}
       </DragOverlay>
     </DndContext>
+  );
+}
+
+export default function EditorPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center h-screen w-screen bg-editor-bg">
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-accent-blue border-t-transparent" />
+        </div>
+      }
+    >
+      <EditorPageContent />
+    </Suspense>
   );
 }

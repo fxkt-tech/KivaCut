@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useProjectList, ProjectHistory } from "./hooks/useProjectList";
 import { ProjectCard } from "./components/ProjectCard";
@@ -9,7 +9,7 @@ import { WindowControls } from "@/app/components/WindowControls";
 import { usePlatform } from "@/app/hooks/usePlatform";
 import { useTheme } from "@/app/hooks/useTheme";
 
-export default function ProjectsPage() {
+function ProjectsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { projects, isLoading, error, refreshProjects } = useProjectList();
@@ -253,5 +253,45 @@ export default function ProjectsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ProjectsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          className="min-h-screen flex flex-col"
+          style={{ background: "var(--color-editor-bg)" }}
+        >
+          <header
+            className="h-8 flex items-center justify-between border-b shrink-0"
+            style={{
+              background: "var(--color-editor-panel)",
+              borderColor: "var(--color-editor-border)",
+            }}
+          >
+            <div className="flex items-center h-full">
+              <div
+                data-tauri-drag-region
+                className="flex items-center gap-2 font-bold text-lg px-4 select-none"
+              >
+                <span style={{ color: "var(--color-accent-cyan)" }}>
+                  KivaCut
+                </span>
+              </div>
+            </div>
+          </header>
+          <div className="flex-1 flex items-center justify-center">
+            <div
+              className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2"
+              style={{ borderColor: "var(--color-accent-cyan)" }}
+            ></div>
+          </div>
+        </div>
+      }
+    >
+      <ProjectsPageContent />
+    </Suspense>
   );
 }
