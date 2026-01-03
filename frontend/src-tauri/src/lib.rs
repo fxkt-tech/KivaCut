@@ -30,6 +30,7 @@ pub fn run() {
             commands::material::delete_material,
             commands::editor::get_protocol,
             commands::editor::save_protocol,
+            commands::editor::export_video,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

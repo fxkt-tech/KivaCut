@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "kiva-cut",
+  "productName": "KivaCut",
   "version": "0.1.0",
   "identifier": "tech.fxkt.kiva-cut",
   "build": {

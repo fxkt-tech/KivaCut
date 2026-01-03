@@ -145,6 +145,22 @@ export function useTauriCommands() {
     }
   };
 
+  const exportVideo = async (
+    projectId: string,
+    outputPath?: string,
+    exportType?: "video" | "audio",
+  ): Promise<string> => {
+    try {
+      return await invoke<string>("export_video", {
+        projectId,
+        outputPath,
+        exportType,
+      });
+    } catch (error) {
+      throw new Error(`Failed to export video: ${error}`);
+    }
+  };
+
   return useMemo(
     () => ({
       createProject,
@@ -157,6 +173,7 @@ export function useTauriCommands() {
       openProjectDir,
       deleteProject,
       getDefaultProjectsDir,
+      exportVideo,
     }),
     [],
   );

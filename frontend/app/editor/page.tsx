@@ -9,6 +9,8 @@ import {
   Suspense,
 } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { invoke } from "@tauri-apps/api/core";
+import { save } from "@tauri-apps/plugin-dialog";
 import {
   DndContext,
   DragOverlay,
@@ -413,10 +415,55 @@ function EditorPageContent() {
   }, [project]);
 
   const handleExport = async () => {
-    console.log("Export clicked");
-    // Save protocol before exporting
-    await handleSaveProtocol();
-    // TODO: Implement export functionality
+    try {
+      console.log("Export clicked");
+
+      // Save protocol before exporting
+      await handleSaveProtocol();
+
+      if (!projectId) {
+        console.error("No project ID");
+        return;
+      }
+
+      // Show save dialog
+      const outputPath = await save({
+        defaultPath: `${projectName}.mp4`,
+        filters: [
+          {
+            name: "Video",
+            extensions: ["mp4"],
+          },
+          {
+            name: "Audio",
+            extensions: ["mp3"],
+          },
+        ],
+      });
+
+      if (!outputPath) {
+        console.log("Export cancelled");
+        return;
+      }
+
+      // Determine export type based on file extension
+      const exportType = outputPath.endsWith(".mp3") ? "audio" : "video";
+
+      console.log("Exporting to:", outputPath);
+
+      // Call export command
+      const result = await invoke<string>("export_video", {
+        projectId,
+        outputPath,
+        exportType,
+      });
+
+      console.log("Export completed:", result);
+      alert(`Export successful!\nSaved to: ${result}`);
+    } catch (error) {
+      console.error("Export failed:", error);
+      alert(`Export failed: ${error}`);
+    }
   };
 
   const handleBackToProjects = () => {
