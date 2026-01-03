@@ -64,4 +64,16 @@ export interface BackendResource {
   name: string;
   src: string;
   resource_type: string;
+  material_type: string;
+  dimension?: {
+    width: number;
+    height: number;
+  };
+  duration?: number;
+  fps?: number;
+  codec?: string;
+  bitrate?: number;
+  sample_rate?: number;
+  channels?: number;
+  format?: string;
 }

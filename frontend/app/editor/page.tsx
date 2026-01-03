@@ -89,6 +89,21 @@ export default function EditorPage() {
   const [playerDuration, setPlayerDuration] = useState(0);
   const [playerIsPlaying, setPlayerIsPlaying] = useState(false);
 
+  // 选中的资源状态 - 原始选择
+  const [rawSelectedResource, setRawSelectedResource] = useState<{
+    id: string;
+    type: string;
+    data: any;
+  } | null>(null);
+
+  // 计算实际显示的资源 - 当有 clip 选中时清空
+  const selectedResource = useMemo(() => {
+    if (selectedClip) {
+      return null;
+    }
+    return rawSelectedResource;
+  }, [selectedClip, rawSelectedResource]);
+
   const [activeDragData, setActiveDragData] = useState<DragData | Clip | null>(
     null,
   );
@@ -120,6 +135,25 @@ export default function EditorPage() {
       }
     }
   }, [selectedClip, state.activePropertyTab, setActivePropertyTab]);
+
+  // === 资源选择处理 ===
+  const handleResourceSelect = useCallback((resource: any | null) => {
+    if (!resource) {
+      setRawSelectedResource(null);
+      return;
+    }
+
+    // 当选中资源时，清除选中的 clip
+    const clearSelection = useTimelineStore.getState().clearSelection;
+    clearSelection();
+
+    // 直接使用后端返回的完整数据
+    setRawSelectedResource({
+      id: resource.id,
+      type: resource.material_type || resource.type,
+      data: resource,
+    });
+  }, []);
 
   // === Player 回调 - 同步状态 ===
   const handlePlayerTimeUpdate = useCallback((time: number) => {
@@ -193,6 +227,12 @@ export default function EditorPage() {
         name: video.name,
         src: video.src,
         resource_type: "video",
+        material_type: "video",
+        dimension: video.dimension,
+        duration: video.duration,
+        fps: video.fps,
+        codec: video.codec,
+        bitrate: video.bitrate,
       });
     });
     // Add audios
@@ -202,6 +242,12 @@ export default function EditorPage() {
         name: audio.name,
         src: audio.src,
         resource_type: "audio",
+        material_type: "audio",
+        duration: audio.duration,
+        codec: audio.codec,
+        bitrate: audio.bitrate,
+        sample_rate: audio.sample_rate,
+        channels: audio.channels,
       });
     });
     // Add images
@@ -211,6 +257,9 @@ export default function EditorPage() {
         name: image.name,
         src: image.src,
         resource_type: "image",
+        material_type: "image",
+        dimension: image.dimension,
+        format: image.format,
       });
     });
 
@@ -799,6 +848,7 @@ export default function EditorPage() {
               isLoading={isLoadingProtocol}
               projectPath={project?.path || null}
               loadResources={reloadProtocol}
+              onResourceSelect={handleResourceSelect}
             />
 
             {/* Center: Player */}
@@ -815,6 +865,7 @@ export default function EditorPage() {
             <PropertiesPanel
               activeTab={state.activePropertyTab}
               onTabChange={setActivePropertyTab}
+              selectedResource={selectedResource}
               selectedClip={selectedClip}
               onClipTransformChange={handleClipTransformChange}
             />

@@ -7,15 +7,9 @@ import { useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { useTauriCommands } from "@/app/hooks/useTauriCommands";
 import { DragData, MediaType } from "../../types/timeline";
+import { BackendResource } from "../../types/editor";
 import { DeleteIcon } from "../../icons/UIIcons";
 import { VideoIcon, AudioIcon, ImageIcon } from "../../icons/MaterialIcons";
-
-interface BackendResource {
-  id: string;
-  name: string;
-  src: string;
-  resource_type: string;
-}
 
 interface ResourceGridProps {
   resources: BackendResource[];

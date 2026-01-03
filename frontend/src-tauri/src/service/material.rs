@@ -1,7 +1,7 @@
 use anyhow::{Result, bail};
 use kiva_cut::Editor;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use crate::models::Resource;
 
@@ -37,7 +37,7 @@ pub fn save_protocol_content(project_path: &str, proto_content: &str) -> Result<
 /// --
 
 /// Import a material file to project
-/// The file is copied to the materials directory and named by material ID
+/// The file is not copied, path in protocol.json points directly to the source file
 pub async fn import_material_from_source(
     project_path: &str,
     source_path: &str,
@@ -60,41 +60,17 @@ pub async fn import_material_from_source(
         .unwrap_or("unknown")
         .to_string();
 
-    // Get file extension
-    let extension = source_file
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("");
-
-    // Use the source path temporarily to get material ID
+    // Use the source path directly to get material ID
     let source_str = source_file.to_string_lossy().to_string();
     let material_id = editor.add_material(&source_str).await?;
 
-    // Create materials directory if it doesn't exist
-    let materials_dir = PathBuf::from(project_path).join("materials");
-    fs::create_dir_all(&materials_dir)?;
-
-    // Create new file path with material ID as filename
-    let new_filename = if extension.is_empty() {
-        material_id.clone()
-    } else {
-        format!("{}.{}", material_id, extension)
-    };
-    let dest_path = materials_dir.join(&new_filename);
-
-    // Copy the file to materials directory
-    fs::copy(&source_file, &dest_path)?;
-
-    // Update the material path in protocol to use the new path
-    let new_path_str = dest_path.to_string_lossy().to_string();
-
-    // Reload protocol and update the material path
+    // Update the material path in protocol to use the source path directly
     let mut protocol = editor.save_to_protocol();
 
     // Update path in videos
     for video in &mut protocol.materials.videos {
         if video.id == material_id {
-            video.src = new_path_str.clone();
+            video.src = source_str.clone();
             video.name = original_name.clone();
         }
     }
@@ -102,7 +78,7 @@ pub async fn import_material_from_source(
     // Update path in audios
     for audio in &mut protocol.materials.audios {
         if audio.id == material_id {
-            audio.src = new_path_str.clone();
+            audio.src = source_str.clone();
             audio.name = original_name.clone();
         }
     }
@@ -110,7 +86,7 @@ pub async fn import_material_from_source(
     // Update path in images
     for image in &mut protocol.materials.images {
         if image.id == material_id {
-            image.src = new_path_str.clone();
+            image.src = source_str.clone();
             image.name = original_name.clone();
         }
     }
@@ -153,12 +129,74 @@ pub async fn import_material_from_source(
         material_type = "image".to_string();
     }
 
+    // Get full material metadata from protocol
+    let mut dimension = None;
+    let mut duration = None;
+    let mut fps = None;
+    let mut codec = None;
+    let mut bitrate = None;
+    let mut sample_rate = None;
+    let mut channels = None;
+    let mut format = None;
+
+    if material_type == "video" {
+        if let Some(video) = protocol
+            .materials
+            .videos
+            .iter()
+            .find(|v| v.id == material_id)
+        {
+            dimension = Some(crate::models::Dimension {
+                width: video.dimension.width,
+                height: video.dimension.height,
+            });
+            duration = video.duration;
+            fps = video.fps;
+            codec = video.codec.clone();
+            bitrate = video.bitrate;
+        }
+    } else if material_type == "audio" {
+        if let Some(audio) = protocol
+            .materials
+            .audios
+            .iter()
+            .find(|a| a.id == material_id)
+        {
+            duration = audio.duration;
+            codec = audio.codec.clone();
+            bitrate = audio.bitrate;
+            sample_rate = audio.sample_rate;
+            channels = audio.channels;
+        }
+    } else if material_type == "image" {
+        if let Some(image) = protocol
+            .materials
+            .images
+            .iter()
+            .find(|i| i.id == material_id)
+        {
+            dimension = Some(crate::models::Dimension {
+                width: image.dimension.width,
+                height: image.dimension.height,
+            });
+            format = image.format.clone();
+        }
+    }
+
     Ok(Resource {
         id: material_id,
         name: original_name,
-        src: new_path_str,
+        src: source_str,
         resource_type: "media".to_string(),
         material_type,
+        dimension,
+        duration,
+        fps,
+        codec,
+        bitrate,
+        sample_rate,
+        channels,
+        format,
     })
 }
 
@@ -179,6 +217,17 @@ pub fn list_all_materials(project_path: &str) -> Result<Vec<Resource>> {
             src: video.src.clone(),
             resource_type: "media".to_string(),
             material_type: "video".to_string(),
+            dimension: Some(crate::models::Dimension {
+                width: video.dimension.width,
+                height: video.dimension.height,
+            }),
+            duration: video.duration,
+            fps: video.fps,
+            codec: video.codec.clone(),
+            bitrate: video.bitrate,
+            sample_rate: None,
+            channels: None,
+            format: None,
         });
     }
 
@@ -190,6 +239,14 @@ pub fn list_all_materials(project_path: &str) -> Result<Vec<Resource>> {
             src: audio.src.clone(),
             resource_type: "media".to_string(),
             material_type: "audio".to_string(),
+            dimension: None,
+            duration: audio.duration,
+            fps: None,
+            codec: audio.codec.clone(),
+            bitrate: audio.bitrate,
+            sample_rate: audio.sample_rate,
+            channels: audio.channels,
+            format: None,
         });
     }
 
@@ -201,6 +258,17 @@ pub fn list_all_materials(project_path: &str) -> Result<Vec<Resource>> {
             src: image.src.clone(),
             resource_type: "media".to_string(),
             material_type: "image".to_string(),
+            dimension: Some(crate::models::Dimension {
+                width: image.dimension.width,
+                height: image.dimension.height,
+            }),
+            duration: None,
+            fps: None,
+            codec: None,
+            bitrate: None,
+            sample_rate: None,
+            channels: None,
+            format: image.format.clone(),
         });
     }
 
@@ -208,7 +276,7 @@ pub fn list_all_materials(project_path: &str) -> Result<Vec<Resource>> {
 }
 
 /// Remove a material from the protocol
-/// Removes the entry from protocol.json and deletes the file from materials directory
+/// Removes the entry from protocol.json but does not delete the physical file
 pub fn remove_material(project_path: &str, material_id: &str) -> Result<()> {
     let protocol_file = get_protocol_file(project_path)?;
     let mut editor = Editor::new();
@@ -219,23 +287,15 @@ pub fn remove_material(project_path: &str, material_id: &str) -> Result<()> {
     let material_id_str = material.id().to_string();
     println!(
         "remove material {} from protocol: {}",
-        material_id_str,
-        material_src
+        material_id_str, material_src
     );
 
     // Delete from protocol
     editor.delete_material(material_id)?;
     editor.save_to_file(&protocol_file)?;
 
-    // Delete the physical file if it's in the materials directory
-    let material_path = Path::new(&material_src);
-    if material_path.exists() {
-        let materials_dir = PathBuf::from(project_path).join("materials");
-        if material_path.starts_with(&materials_dir) {
-            fs::remove_file(material_path)?;
-            println!("Deleted material file: {}", material_src);
-        }
-    }
+    // Note: We do not delete the physical file since it's the source file
+    // and may be used elsewhere. The file will remain in its original location.
 
     Ok(())
 }

@@ -1320,7 +1320,7 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
         </div>
 
         {/* 播放控制栏 */}
-        <div className="h-8 flex items-center relative shrink-0 border-t border-editor-border bg-editor-bg px-4">
+        <div className="h-8 flex items-center relative shrink-0 border-t border-editor-border bg-editor-bg px-2">
           {/* 左侧：时间显示 */}
           <div className="text-xs font-mono text-accent-cyan min-w-fit">
             {formatTimeByDisplayMode(currentTime, timeDisplayFormat, storeFps)}{" "}
@@ -1328,7 +1328,7 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
           </div>
 
           {/* 中间：播放控制按钮 */}
-          <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-4">
+          <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-1">
             <button
               onClick={handlePrevious}
               className="transition-colors text-lg text-text-secondary hover:text-text-fg disabled:opacity-50 disabled:cursor-not-allowed"

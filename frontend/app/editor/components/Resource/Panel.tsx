@@ -20,7 +20,7 @@ interface ResourcePanelProps {
   onTabChange: (tab: string) => void;
   resources?: BackendResource[];
   isLoading?: boolean;
-  onResourceSelect?: (resource: EditorResource | null) => void;
+  onResourceSelect?: (resource: any | null) => void;
   projectPath?: string | null;
   loadResources?: () => Promise<void>;
 }
@@ -41,7 +41,7 @@ export function ResourcePanel({
     (r) => r.resource_type === activeTab || activeTab === "media",
   );
 
-  // Convert BackendResource to EditorResource for callbacks
+  // Pass BackendResource directly to parent with full metadata
   const handleResourceSelect = (backendResource: BackendResource | null) => {
     if (onResourceSelect) {
       // Handle null case (deselection)
@@ -50,22 +50,42 @@ export function ResourcePanel({
         return;
       }
 
-      // Map backend resource type to editor ResourceTab type
+      // Map backend resource to EditorResource format with full metadata
       let resourceType: EditorResource["type"] = "media";
-      if (backendResource.resource_type === "video") {
+      if (backendResource.material_type === "video") {
         resourceType = "media";
-      } else if (backendResource.resource_type === "audio") {
+      } else if (backendResource.material_type === "audio") {
         resourceType = "audio";
+      } else if (backendResource.material_type === "image") {
+        resourceType = "media";
       }
 
-      const editorResource: EditorResource = {
+      const editorResource: EditorResource & {
+        material_type?: string;
+        dimension?: { width: number; height: number };
+        duration?: number;
+        fps?: number;
+        codec?: string;
+        bitrate?: number;
+        sample_rate?: number;
+        channels?: number;
+        format?: string;
+      } = {
         id: backendResource.id,
         name: backendResource.name,
         type: resourceType,
         src: backendResource.src,
+        material_type: backendResource.material_type,
+        dimension: backendResource.dimension,
+        duration: backendResource.duration,
+        fps: backendResource.fps,
+        codec: backendResource.codec,
+        bitrate: backendResource.bitrate,
+        sample_rate: backendResource.sample_rate,
+        channels: backendResource.channels,
+        format: backendResource.format,
       };
-      console.log(backendResource);
-      onResourceSelect(editorResource);
+      onResourceSelect(editorResource as any);
     }
   };
 
