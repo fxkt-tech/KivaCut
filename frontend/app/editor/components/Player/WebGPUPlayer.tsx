@@ -619,18 +619,9 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
           video.preload = "auto";
 
           video.onloadedmetadata = () => {
-            const canvasAspect = width / height;
-            const videoAspect = video.videoWidth / video.videoHeight;
-
-            let initScaleX = 1.0;
-            let initScaleY = 1.0;
-
-            // 自适应缩放以适配画布
-            if (videoAspect > canvasAspect) {
-              initScaleY = canvasAspect / videoAspect;
-            } else {
-              initScaleX = videoAspect / canvasAspect;
-            }
+            // 计算视频在舞台上的实际像素比例
+            const initScaleX = video.videoWidth / width;
+            const initScaleY = video.videoHeight / height;
 
             const layer: VideoLayer = {
               id: clipId ?? generateId(),
@@ -748,20 +739,9 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
             duration: source.duration,
           });
 
-          // 计算基础缩放
-          const canvasAspect = width / height;
-          const imageAspect = source.width / source.height;
-
-          let initScaleX = 1.0;
-          let initScaleY = 1.0;
-
-          if (imageAspect > canvasAspect) {
-            initScaleY = canvasAspect / imageAspect;
-          } else {
-            initScaleX = imageAspect / canvasAspect;
-          }
-
-          console.log("📐 计算缩放:", { initScaleX, initScaleY });
+          // 计算图片在舞台上的实际像素比例
+          const initScaleX = source.width / width;
+          const initScaleY = source.height / height;
 
           // 获取纹理并缓存
           const textureResult = source.getTexture(device, 0);
@@ -1255,7 +1235,6 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
         });
         layersRef.current = [];
       };
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // 从 tracks 同步图层（等待 WebGPU 初始化完成）

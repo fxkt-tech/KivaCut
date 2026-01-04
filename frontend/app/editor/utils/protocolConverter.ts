@@ -153,17 +153,11 @@ export function timelineToProtocol(
             start: secondsToMs(clip.trimStart),
             duration: secondsToMs(clip.trimEnd - clip.trimStart),
           },
-          scale:
-            clip.scale !== 1
-              ? {
-                  width: scaledWidth,
-                  height: scaledHeight,
-                }
-              : undefined,
-          position:
-            clip.position.x !== 0 || clip.position.y !== 0
-              ? clip.position
-              : undefined,
+          scale: {
+            width: scaledWidth,
+            height: scaledHeight,
+          },
+          position: clip.position,
           rotation: clip.rotation !== 0 ? clip.rotation : undefined,
           opacity: clip.opacity !== 1 ? clip.opacity : undefined,
         };

@@ -485,6 +485,34 @@ impl Editor {
         self.session.validate()
     }
 
+    /// Convert Cartesian coordinates (origin at center) to FFmpeg coordinates (origin at top-left)
+    ///
+    /// # Arguments
+    /// * `x_cartesian` - X coordinate in Cartesian system (0 at center, represents content center)
+    /// * `y_cartesian` - Y coordinate in Cartesian system (0 at center, Y+ is up, represents content center)
+    /// * `stage_width` - Width of the stage/canvas
+    /// * `stage_height` - Height of the stage/canvas
+    /// * `content_width` - Width of the content being positioned
+    /// * `content_height` - Height of the content being positioned
+    ///
+    /// # Returns
+    /// Tuple of (x_ffmpeg, y_ffmpeg) where both are FFmpeg coordinates (top-left corner of content)
+    fn cartesian_to_ffmpeg_coords(
+        x_cartesian: i32,
+        y_cartesian: i32,
+        stage_width: i32,
+        stage_height: i32,
+        content_width: i32,
+        content_height: i32,
+    ) -> (i32, i32) {
+        // Convert from center-based coordinates to top-left based coordinates
+        // Cartesian: (0,0) is at stage center, (x,y) represents content center
+        // FFmpeg: (0,0) is at stage top-left, (x,y) represents content top-left
+        let x_ffmpeg = (stage_width - content_width) / 2 + x_cartesian;
+        let y_ffmpeg = (stage_height - content_height) / 2 - y_cartesian;
+        (x_ffmpeg, y_ffmpeg)
+    }
+
     /// Export video using the built-in composition engine
     pub async fn export(&self, options: ExportOptions) -> Result<()> {
         self.validate()?;
@@ -531,11 +559,23 @@ impl Editor {
                     let target_start = segment.target_timerange.start as f64 / 1000.0;
                     let target_duration = segment.target_timerange.duration as f64 / 1000.0;
 
-                    // 视频流：缩放视频
-                    if let Some(scale) = segment.scale {
+                    // 视频流：缩放视频，并获取内容尺寸
+                    let (content_width, content_height) = if let Some(scale) = segment.scale {
                         f_last_v =
                             ffmpeg.add_filter(Filter::scale(scale.width, scale.height), [f_last_v]);
-                    }
+                        (scale.width, scale.height)
+                    } else {
+                        // 如果没有缩放，从素材获取原始尺寸
+                        if let Some(material) = self.session.get_material(&segment.material_id) {
+                            if let Some(dim) = material.dimensions() {
+                                (dim.width, dim.height)
+                            } else {
+                                (self.session.stage.width, self.session.stage.height)
+                            }
+                        } else {
+                            (self.session.stage.width, self.session.stage.height)
+                        }
+                    };
 
                     // 视频流：是否需要倍速
                     if segment.needs_speed_adjustment() {
@@ -549,12 +589,22 @@ impl Editor {
                         .add_filter(Filter::setpts(format!("PTS+{target_start}/TB")), [f_last_v]);
 
                     // 视频流：合并视频流到主舞台
-                    let x = segment.position.map(|p| p.x).unwrap_or(0);
-                    let y = segment.position.map(|p| p.y).unwrap_or(0);
+                    // 将笛卡尔坐标（中心点）转换为FFmpeg坐标（左上角）
+                    let x_cartesian = segment.position.map(|p| p.x).unwrap_or(0);
+                    let y_cartesian = segment.position.map(|p| p.y).unwrap_or(0);
+                    let (x_ffmpeg, y_ffmpeg) = Self::cartesian_to_ffmpeg_coords(
+                        x_cartesian,
+                        y_cartesian,
+                        self.session.stage.width,
+                        self.session.stage.height,
+                        content_width,
+                        content_height,
+                    );
+
                     stage_bg = ffmpeg.add_filter(
                         Filter::overlay_with_enable(
-                            x,
-                            y,
+                            x_ffmpeg,
+                            y_ffmpeg,
                             format!(
                                 "'between(t,{},{})'",
                                 target_start,
@@ -759,5 +809,89 @@ impl ExportOptions {
     ) -> Self {
         self.custom_options.insert(key.into(), value.into());
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cartesian_to_ffmpeg_coords_center() {
+        // 舞台: 1920x1080, 内容: 640x360
+        // 笛卡尔坐标 (0, 0) 在舞台中心，表示内容中心
+        // FFmpeg 坐标应该是 (640, 360)，表示内容左上角
+        // 计算: x = (1920-640)/2 + 0 = 640, y = (1080-360)/2 - 0 = 360
+        let (x, y) = Editor::cartesian_to_ffmpeg_coords(0, 0, 1920, 1080, 640, 360);
+        assert_eq!((x, y), (640, 360));
+    }
+
+    #[test]
+    fn test_cartesian_to_ffmpeg_coords_top_center() {
+        // 舞台: 1920x1080, 内容: 640x360
+        // 笛卡尔坐标 (0, 360) 在顶部中心
+        // FFmpeg 坐标应该是 (640, 0)
+        // 计算: x = 640 + 0 = 640, y = 360 - 360 = 0
+        let (x, y) = Editor::cartesian_to_ffmpeg_coords(0, 360, 1920, 1080, 640, 360);
+        assert_eq!((x, y), (640, 0));
+    }
+
+    #[test]
+    fn test_cartesian_to_ffmpeg_coords_bottom_center() {
+        // 舞台: 1920x1080, 内容: 640x360
+        // 笛卡尔坐标 (0, -360) 在底部中心
+        // FFmpeg 坐标应该是 (640, 720)
+        // 计算: x = 640 + 0 = 640, y = 360 - (-360) = 720
+        let (x, y) = Editor::cartesian_to_ffmpeg_coords(0, -360, 1920, 1080, 640, 360);
+        assert_eq!((x, y), (640, 720));
+    }
+
+    #[test]
+    fn test_cartesian_to_ffmpeg_coords_left_center() {
+        // 舞台: 1920x1080, 内容: 640x360
+        // 笛卡尔坐标 (-640, 0) 在左侧中心
+        // FFmpeg 坐标应该是 (0, 360)
+        // 计算: x = 640 + (-640) = 0, y = 360 - 0 = 360
+        let (x, y) = Editor::cartesian_to_ffmpeg_coords(-640, 0, 1920, 1080, 640, 360);
+        assert_eq!((x, y), (0, 360));
+    }
+
+    #[test]
+    fn test_cartesian_to_ffmpeg_coords_right_center() {
+        // 舞台: 1920x1080, 内容: 640x360
+        // 笛卡尔坐标 (640, 0) 在右侧中心
+        // FFmpeg 坐标应该是 (1280, 360)
+        // 计算: x = 640 + 640 = 1280, y = 360 - 0 = 360
+        let (x, y) = Editor::cartesian_to_ffmpeg_coords(640, 0, 1920, 1080, 640, 360);
+        assert_eq!((x, y), (1280, 360));
+    }
+
+    #[test]
+    fn test_cartesian_to_ffmpeg_coords_top_left() {
+        // 舞台: 1920x1080, 内容: 640x360
+        // 笛卡尔坐标 (-640, 360) 在左上角
+        // FFmpeg 坐标应该是 (0, 0)
+        // 计算: x = 640 + (-640) = 0, y = 360 - 360 = 0
+        let (x, y) = Editor::cartesian_to_ffmpeg_coords(-640, 360, 1920, 1080, 640, 360);
+        assert_eq!((x, y), (0, 0));
+    }
+
+    #[test]
+    fn test_cartesian_to_ffmpeg_coords_bottom_right() {
+        // 舞台: 1920x1080, 内容: 640x360
+        // 笛卡尔坐标 (640, -360) 在右下角
+        // FFmpeg 坐标应该是 (1280, 720)
+        // 计算: x = 640 + 640 = 1280, y = 360 - (-360) = 720
+        let (x, y) = Editor::cartesian_to_ffmpeg_coords(640, -360, 1920, 1080, 640, 360);
+        assert_eq!((x, y), (1280, 720));
+    }
+
+    #[test]
+    fn test_cartesian_to_ffmpeg_coords_fullscreen() {
+        // 舞台: 1920x1080, 内容占满整个舞台: 1920x1080
+        // 笛卡尔坐标 (0, 0) 在中心
+        // FFmpeg 坐标应该是 (0, 0)，内容左上角对齐舞台左上角
+        let (x, y) = Editor::cartesian_to_ffmpeg_coords(0, 0, 1920, 1080, 1920, 1080);
+        assert_eq!((x, y), (0, 0));
     }
 }

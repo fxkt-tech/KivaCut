@@ -289,6 +289,38 @@ impl CutProtocol {
 
             // Convert segments
             for segment in &track.segments {
+                // Get material dimensions for default scale if needed
+                let material_dimension = session.materials.iter().find_map(|m| match m {
+                    Material::Video(v) if v.id == segment.material_id => Some(v.dimension),
+                    Material::Image(i) if i.id == segment.material_id => Some(i.dimension),
+                    _ => None,
+                });
+
+                // Ensure scale is always present - use segment scale or material dimension
+                let scale = if let Some(seg_scale) = segment.scale {
+                    ScaleProto {
+                        width: seg_scale.width,
+                        height: seg_scale.height,
+                    }
+                } else if let Some(dim) = material_dimension {
+                    ScaleProto {
+                        width: dim.width,
+                        height: dim.height,
+                    }
+                } else {
+                    // Fallback to default dimensions if material not found
+                    ScaleProto {
+                        width: 1920,
+                        height: 1080,
+                    }
+                };
+
+                // Ensure position is always present - use segment position or default (0, 0)
+                let position = segment
+                    .position
+                    .map(|p| PositionProto { x: p.x, y: p.y })
+                    .unwrap_or(PositionProto { x: 0, y: 0 });
+
                 let protocol_segment = ProtocolSegment {
                     id: segment.id.clone(),
                     segment_type: segment.segment_type.to_string(),
@@ -301,11 +333,8 @@ impl CutProtocol {
                         start: segment.source_timerange.start,
                         duration: segment.source_timerange.duration,
                     },
-                    scale: segment.scale.map(|s| ScaleProto {
-                        width: s.width,
-                        height: s.height,
-                    }),
-                    position: segment.position.map(|p| PositionProto { x: p.x, y: p.y }),
+                    scale: Some(scale),
+                    position: Some(position),
                 };
 
                 protocol_track.segments.push(protocol_segment);
