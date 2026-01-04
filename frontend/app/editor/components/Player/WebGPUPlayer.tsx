@@ -68,7 +68,15 @@ export interface PlayerRef {
   addVideoLayer: (
     videoSrc: string,
     startTime: number,
+    duration?: number,
     name?: string,
+    clipId?: string,
+    transform?: {
+      position?: { x: number; y: number };
+      scale?: number;
+      rotation?: number;
+      opacity?: number;
+    },
   ) => Promise<void>;
   addImageLayer: (
     imageSrc: string,
@@ -595,6 +603,7 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
       async (
         videoSrc: string,
         startTime: number = 0,
+        duration?: number,
         name?: string,
         clipId?: string,
         transform?: {
@@ -633,7 +642,7 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
               posY: transform?.position?.y ?? 0,
               scale: transform?.scale ?? 1.0,
               startTime,
-              duration: video.duration,
+              duration: duration ?? video.duration,
               baseScaleX: initScaleX,
               baseScaleY: initScaleY,
               opacity: transform?.opacity ?? 1.0,
@@ -659,7 +668,7 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
                   id: layer.id,
                   videoElement: video,
                   startTime,
-                  duration: video.duration,
+                  duration: duration ?? video.duration,
                   volume: 1.0,
                   muted: false,
                 });
@@ -885,18 +894,24 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
         const existingIds = new Set(layersRef.current.map((l) => l.id));
         const newIds = new Set(mediaClips.map((c) => c.id));
 
-        // 检查是否有 ID 变化或 startTime 变化
+        // 检查是否有 ID 变化或 startTime/duration 变化
         let needsUpdate =
           existingIds.size !== newIds.size ||
           ![...existingIds].every((id) => newIds.has(id));
 
-        // 如果 ID 相同，检查 startTime 是否有变化
+        // 如果 ID 相同，检查 startTime 和 duration 是否有变化
         if (!needsUpdate) {
           for (const clip of mediaClips) {
             const layer = layersRef.current.find((l) => l.id === clip.id);
-            if (layer && Math.abs(layer.startTime - clip.startTime) > 0.001) {
-              needsUpdate = true;
-              break;
+            if (layer) {
+              const hasStartTimeChange =
+                Math.abs(layer.startTime - clip.startTime) > 0.001;
+              const hasDurationChange =
+                Math.abs(layer.duration - clip.duration) > 0.001;
+              if (hasStartTimeChange || hasDurationChange) {
+                needsUpdate = true;
+                break;
+              }
             }
           }
         }
@@ -935,6 +950,7 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
               await addVideoLayer(
                 mediaUrl,
                 clip.startTime,
+                clip.duration,
                 clip.name,
                 clip.id,
                 clip.transform,
@@ -1235,6 +1251,7 @@ export const WebGPUPlayer = forwardRef<PlayerRef, PlayerProps>(
         });
         layersRef.current = [];
       };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // 从 tracks 同步图层（等待 WebGPU 初始化完成）
